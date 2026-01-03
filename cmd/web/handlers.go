@@ -1,28 +1,56 @@
 package main
 
 import (
-	"encoding/json"
+	"html/template"
 	"net/http"
-	"os"
-	"os/exec"
-	"time"
 )
 
-type Data struct {
-	Host        string
-	CurrentTime time.Time
-	Uptime      string
+func (app *app) getHome(w http.ResponseWriter, r *http.Request) {
+	// w.Write([]byte("Home .... "))
+	posts, err := app.posts.ALL()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	t, err := template.ParseFiles("./assets/templates/home.page.html")
+
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = t.Execute(w, map[string]any{"Posts": posts})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+
+}
+func (app *app) createPost(w http.ResponseWriter, r *http.Request) {
+	// w.Write([]byte("Home .... "))
+	t, err := template.ParseFiles("./assets/templates/post.create.page.html")
+
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = t.Execute(w, nil)
+
 }
 
-func getHome(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	host, _ := os.Hostname()
-	cmd := exec.Command("uptime")
-	uptime, _ := cmd.Output()
-	responseData := Data{
-		Host:        host,
-		CurrentTime: time.Now(),
-		Uptime:      string(uptime),
+func (app *app) storePost(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
 	}
-	json.NewEncoder(w).Encode(responseData)
+	err = app.posts.Insert(
+		r.PostForm.Get("title"),
+		r.PostForm.Get("content"),
+	)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
 }
